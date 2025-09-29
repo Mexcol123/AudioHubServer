@@ -8,11 +8,24 @@ public class AudioHub : Hub
     public Task LeaveRoom(string roomId) =>
         Groups.RemoveFromGroupAsync(Context.ConnectionId, roomId);
 
-    public Task SendAudioChunk(byte[] data, string format, string senderId, string? roomId = null)
+    public async Task SendAudioChunk(byte[] data, string format, string senderId, string? roomId = null)
     {
-        if (!string.IsNullOrEmpty(roomId))
-            return Clients.OthersInGroup(roomId).SendAsync("ReceiveAudioChunk", data, format, senderId);
+        try
+        {
+            var len = data?.Length ?? 0;
+            Console.WriteLine($"[AudioHub] Recibido chunk de {len} bytes, fmt={format}, sender={senderId}");
 
-        return Clients.Others.SendAsync("ReceiveAudioChunk", data, format, senderId);
+            if (len == 0) return;
+
+            if (!string.IsNullOrEmpty(roomId))
+                await Clients.OthersInGroup(roomId).SendAsync("ReceiveAudioChunk", data, format, senderId);
+            else
+                await Clients.Others.SendAsync("ReceiveAudioChunk", data, format, senderId);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[AudioHub] ERROR reenviando: {ex}");
+            throw; // deja que el cliente vea el error
+        }
     }
 }
